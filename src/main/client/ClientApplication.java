@@ -1,6 +1,6 @@
-package chat.client;
+package main.client;
 
-import static chat.util.MyLogger.log;
+import static main.util.MyLogger.log;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -14,7 +14,6 @@ public class ClientApplication {
     private final static int PORT = 1234;
 
     public static void main(String[] args) {
-
         try (Socket socket = new Socket();
              DataInputStream input = new DataInputStream(socket.getInputStream());
              DataOutputStream output = new DataOutputStream(socket.getOutputStream())
@@ -22,8 +21,13 @@ public class ClientApplication {
             socket.connect(new InetSocketAddress("localhost", PORT), 5000);
             log("소켓 연결: " + socket);
 
-            while (true) {
+            Thread thread = new Thread(new ReceiveTask(input), "Receive");
+            thread.start();
 
+            Scanner scanner = new Scanner(System.in);
+            while (true) {
+                String command = scanner.nextLine();
+                output.writeUTF(command);
             }
 
         } catch (IOException e) {
