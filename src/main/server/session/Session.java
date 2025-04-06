@@ -1,9 +1,8 @@
-package chat.server.session;
+package main.server.session;
 
-import static chat.util.MyLogger.log;
-import static chat.util.SocketCloseUtil.*;
+import static main.util.MyLogger.log;
+import static main.util.SocketCloseUtil.*;
 
-import chat.util.SocketCloseUtil;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -32,8 +31,6 @@ public class Session implements Runnable {
             while (true) {
                 // TODO: 비즈니스 로직 구현
             }
-        } catch (IOException e) {
-            log(e);
         } finally {
             sessionManager.remove(this);
             close();

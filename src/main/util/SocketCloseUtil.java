@@ -1,6 +1,6 @@
-package chat.util;
+package main.util;
 
-import static chat.util.MyLogger.log;
+import static main.util.MyLogger.log;
 
 import java.io.IOException;
 import java.io.InputStream;

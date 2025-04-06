@@ -1,10 +1,10 @@
-package chat.server;
+package main.server;
 
-import static chat.server.config.ServerConstant.*;
-import static chat.util.MyLogger.log;
+import static main.server.config.ServerConstant.*;
+import static main.util.MyLogger.log;
 
-import chat.server.session.Session;
-import chat.server.session.SessionManager;
+import main.server.session.Session;
+import main.server.session.SessionManager;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
