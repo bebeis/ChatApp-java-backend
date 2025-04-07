@@ -1,14 +1,10 @@
 package main.server.session;
 
-import static main.server.config.ServerConstant.CHANGE_USERNAME;
-import static main.server.config.ServerConstant.CLOSE_CONNECTION;
-import static main.server.config.ServerConstant.FIND_ALL_USER;
 import static main.server.config.ServerConstant.INVALID_COMMAND_FORMAT_MESSAGE;
 import static main.server.config.ServerConstant.INVALID_COMMAND_MESSAGE;
 import static main.server.config.ServerConstant.JOIN;
 import static main.server.config.ServerConstant.MESSAGE_TIME_FORMATTER;
 import static main.server.config.ServerConstant.REQUEST_USERNAME_REGISTRATION_MESSAGE;
-import static main.server.config.ServerConstant.SEND_MESSAGE;
 import static main.server.config.ServerConstant.SYSTEM;
 import static main.util.MyLogger.log;
 import static main.util.SocketCloseUtil.*;
@@ -18,7 +14,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.time.LocalDateTime;
-import java.util.List;
+import main.server.command.Command;
 
 public class Session implements Runnable {
 
@@ -58,50 +54,19 @@ public class Session implements Runnable {
             return;
         }
 
-        String command = findCommandFromMessage(received);
+        String commandStr = findCommandFromMessage(received);
         String content = findContentFromMessage(received);
 
-        if (isInvalidCommand(command)) {
-            sendMessage(SYSTEM, INVALID_COMMAND_MESSAGE);
-            return;
-        }
-
-        if (command.equals(JOIN)) {
-            registerUsername(content);
-            sendMessage(SYSTEM, "등록된 이름: " + userName);
-            return;
-        }
-
-        if (userName == null) {
+        if (userName == null && !commandStr.equals(JOIN)) {
             sendMessage(SYSTEM, REQUEST_USERNAME_REGISTRATION_MESSAGE);
             return;
         }
 
-        if (command.equals(SEND_MESSAGE)) {
-            sessionManager.sendMessageToAll(userName, content);
-            return;
-        }
-
-        if (command.equals(CHANGE_USERNAME)) {
-            changeUsername(content);
-            sendMessage(SYSTEM, "변경된 이름: " + userName);
-            return;
-        }
-
-        if (command.equals(FIND_ALL_USER)) {
-            List<String> usernames = sessionManager.findConnectedUserAll();
-            StringBuilder sb = new StringBuilder();
-            for (String username : usernames) {
-                sb.append(username).append("\n");
-            }
-            output.writeUTF(sb.toString());
-            return;
-        }
-
-        if (command.equals(CLOSE_CONNECTION)) {
-            sessionCloseProcess();
-            return;
-        }
+        Command.fromString(commandStr)
+                .ifPresentOrElse(
+                        command -> command.execute(this, content),
+                        () -> sendMessage(SYSTEM, INVALID_COMMAND_MESSAGE)
+                );
 
     }
 
@@ -119,11 +84,11 @@ public class Session implements Runnable {
         return received.substring(1);
     }
 
-    private void changeUsername(String username) {
+    public void changeUsername(String username) {
         this.userName = username;
     }
 
-    private void registerUsername(String username) {
+    public void registerUsername(String username) {
         this.userName = username;
     }
 
@@ -142,17 +107,25 @@ public class Session implements Runnable {
         return !received.startsWith("/");
     }
 
-    public void sendMessage(String from, String message) throws IOException {
+    public void sendMessage(String from, String message) {
         String time = LocalDateTime.now().format(MESSAGE_TIME_FORMATTER);
         String formattedMessage = String.format("[%s] %s: %s", time, from, message);
-        output.writeUTF(formattedMessage);
+        try {
+            output.writeUTF(formattedMessage);
+        } catch (IOException e) {
+            log("메시지 전송 중 오류 발생: " + e);
+        }
     }
 
     public String getUserName() {
         return userName;
     }
 
-    private void sessionCloseProcess() {
+    public SessionManager getSessionManager() {
+        return sessionManager;
+    }
+
+    public void sessionCloseProcess() {
         sessionManager.remove(this);
         close();
     }

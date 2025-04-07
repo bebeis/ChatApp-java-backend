@@ -23,7 +23,7 @@ public class SessionManager {
         sessions.clear();
     }
 
-    public void sendMessageToAll(String userName, String message) throws IOException {
+    public void sendMessageToAll(String userName, String message) {
         for (Session session : sessions) {
             session.sendMessage(userName, message);
         }
