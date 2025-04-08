@@ -1,10 +1,6 @@
 package main.server.session;
 
-import static main.server.config.ServerConstant.INVALID_COMMAND_FORMAT_MESSAGE;
-import static main.server.config.ServerConstant.INVALID_COMMAND_MESSAGE;
-import static main.server.config.ServerConstant.JOIN;
 import static main.server.config.ServerConstant.MESSAGE_TIME_FORMATTER;
-import static main.server.config.ServerConstant.REQUEST_USERNAME_REGISTRATION_MESSAGE;
 import static main.server.config.ServerConstant.SYSTEM;
 import static main.util.MyLogger.log;
 import static main.util.SocketCloseUtil.*;
@@ -14,7 +10,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.time.LocalDateTime;
-import main.server.command.Command;
+import main.server.command.CommandManager;
 
 public class Session implements Runnable {
 
@@ -22,14 +18,16 @@ public class Session implements Runnable {
     private final DataInputStream input;
     private final DataOutputStream output;
     private final SessionManager sessionManager;
+    private final CommandManager commandManager;
     private boolean isClosed = false;
-    private String userName = null;
+    private String username = null;
 
-    public Session(Socket socket, SessionManager sessionManager) throws IOException {
+    public Session(Socket socket, SessionManager sessionManager, CommandManager commandManager) throws IOException {
         this.socket = socket;
         this.input = new DataInputStream(socket.getInputStream());
         this.output = new DataOutputStream(socket.getOutputStream());
         this.sessionManager = sessionManager;
+        this.commandManager = commandManager;
         sessionManager.add(this);
     }
 
@@ -38,8 +36,8 @@ public class Session implements Runnable {
         try {
             while (true) {
                 String received = input.readUTF();
-                log(received);
-                logic(received);
+                log("client to server: " + received);
+                commandManager.execute(received, this);
             }
         } catch (IOException e) {
             log(e);
@@ -48,27 +46,6 @@ public class Session implements Runnable {
         }
     }
 
-    private void logic(String received) throws IOException {
-        if (isInvalidCommandFormat(received)) {
-            sendMessage(SYSTEM, INVALID_COMMAND_FORMAT_MESSAGE);
-            return;
-        }
-
-        String commandStr = findCommandFromMessage(received);
-        String content = findContentFromMessage(received);
-
-        if (userName == null && !commandStr.equals(JOIN)) {
-            sendMessage(SYSTEM, REQUEST_USERNAME_REGISTRATION_MESSAGE);
-            return;
-        }
-
-        Command.fromString(commandStr)
-                .ifPresentOrElse(
-                        command -> command.execute(this, content),
-                        () -> sendMessage(SYSTEM, INVALID_COMMAND_MESSAGE)
-                );
-
-    }
 
     private String findContentFromMessage(String received) {
         if (!received.contains("|")) {
@@ -85,11 +62,11 @@ public class Session implements Runnable {
     }
 
     public void changeUsername(String username) {
-        this.userName = username;
+        this.username = username;
     }
 
     public void registerUsername(String username) {
-        this.userName = username;
+        this.username = username;
     }
 
     private boolean isInvalidCommand(String command) {
@@ -107,7 +84,7 @@ public class Session implements Runnable {
         return !received.startsWith("/");
     }
 
-    public void sendMessage(String from, String message) {
+    public void send(String from, String message) {
         String time = LocalDateTime.now().format(MESSAGE_TIME_FORMATTER);
         String formattedMessage = String.format("[%s] %s: %s", time, from, message);
         try {
@@ -117,8 +94,12 @@ public class Session implements Runnable {
         }
     }
 
-    public String getUserName() {
-        return userName;
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public SessionManager getSessionManager() {
@@ -127,6 +108,7 @@ public class Session implements Runnable {
 
     public void sessionCloseProcess() {
         sessionManager.remove(this);
+        sessionManager.sendAll(SYSTEM, username + "님이 퇴장했습니다.");
         close();
     }
 
